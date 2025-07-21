@@ -1,6 +1,8 @@
 module io.github.platovd.pomodoro {
     requires javafx.controls;
     requires javafx.fxml;
+    requires spring.context;
+    requires spring.beans;
 
 
     opens io.github.platovd.pomodoro to javafx.fxml;

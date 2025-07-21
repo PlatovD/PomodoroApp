@@ -1,7 +1,7 @@
 package io.github.platovd.pomodoro.model.elements;
 
 public class DefaultSession implements Session {
-    private int targetFocusSegments;
+    private final int targetFocusSegments;
     private int currentSegment;
     private SessionStatus sessionStatus = SessionStatus.FOCUS;
 
@@ -10,8 +10,13 @@ public class DefaultSession implements Session {
     }
 
     @Override
-    public int getSegmentNumber() {
+    public int getCurrentSegmentNumber() {
         return currentSegment;
+    }
+
+    @Override
+    public int getSegmentNumber() {
+        return targetFocusSegments;
     }
 
     @Override
@@ -23,11 +28,11 @@ public class DefaultSession implements Session {
     public boolean step() {
         if (sessionStatus.equals(SessionStatus.FOCUS)) {
             sessionStatus = SessionStatus.REST;
-            currentSegment++;
         } else {
             sessionStatus = SessionStatus.FOCUS;
+            currentSegment++;
         }
-        return currentSegment != targetFocusSegments;
+        return currentSegment + 1 != targetFocusSegments || sessionStatus.equals(SessionStatus.FOCUS);
     }
 
     @Override
