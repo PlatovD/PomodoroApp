@@ -10,7 +10,7 @@ import java.util.Objects;
 public class ViewUtils {
     public static void setGraphicsOnButton(Button button, String imgPath) {
         button.setBackground(Background.EMPTY);
-        Image image = new Image(Objects.requireNonNull(View.class.getResourceAsStream(imgPath)));
+        Image image = new Image(Objects.requireNonNull(ViewUtils.class.getResourceAsStream(imgPath)));
         ImageView imageView = new ImageView(image);
         imageView.setFitHeight(30);
         imageView.setFitWidth(30);

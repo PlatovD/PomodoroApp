@@ -7,12 +7,17 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.paint.Paint;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import org.springframework.stereotype.Component;
 
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 @Component
-public class TimerSceneBuilder implements SceneBuilder {
+public class TimerSceneBuilder implements ITimerSceneBuilder {
     private Scene scene;
 
     private Label statusView;
@@ -21,17 +26,21 @@ public class TimerSceneBuilder implements SceneBuilder {
     private Button buttonStart;
     private Button buttonStop;
     private Button buttonReset;
+    private Button buttonSettings;
 
     private HBox sessionProgressView;
+
+    public TimerSceneBuilder() {
+        buildScene();
+    }
 
     @Override
     public Scene getScene() {
         return scene;
     }
 
-    public void initSessionProgressBlock() {
+    private void initSessionProgressBlock() {
         sessionProgressView = new HBox();
-        HBox.setHgrow(sessionProgressView, Priority.ALWAYS);
         sessionProgressView.setSpacing(30);
         sessionProgressView.setAlignment(Pos.CENTER);
     }
@@ -48,26 +57,74 @@ public class TimerSceneBuilder implements SceneBuilder {
         HBox.setHgrow(statusView, Priority.ALWAYS);
         statusView.setAlignment(Pos.CENTER);
 
-        pane.topProperty().set(statusView);
-
         buttonStart = new Button();
         ViewUtils.setGraphicsOnButton(buttonStart, "/play.png");
         buttonStop = new Button();
         ViewUtils.setGraphicsOnButton(buttonStop, "/stop.png");
         buttonReset = new Button();
         ViewUtils.setGraphicsOnButton(buttonReset, "/reset.png");
+        buttonSettings = new Button();
+        ViewUtils.setGraphicsOnButton(buttonSettings, "/settings.png");
 
         HBox toolBarBox = new HBox(buttonStart, buttonStop, buttonReset);
         toolBarBox.setAlignment(Pos.TOP_CENTER);
         toolBarBox.setSpacing(10);
 
-
-        pane.bottomProperty().set(new HBox(sessionProgressView, toolBarBox));
-
         timerView = new Label();
         timerView.setFont(new Font(40));
         timerView.setTextFill(Paint.valueOf("#fff"));
+
+        Region topRegion = new Region();
+        HBox.setHgrow(topRegion, Priority.ALWAYS);
+        HBox topBox = new HBox(statusView, topRegion, buttonSettings);
+
+        Region bottomRegion = new Region();
+        HBox.setHgrow(bottomRegion, Priority.ALWAYS);
+        HBox bottomBox = new HBox(sessionProgressView, bottomRegion, toolBarBox);
+
+        pane.topProperty().set(topBox);
         pane.centerProperty().set(timerView);
+        pane.bottomProperty().set(bottomBox);
+
         scene = new Scene(pane);
+    }
+
+    @Override
+    public Consumer<String> getTimerViewChanger() {
+        return timerView::setText;
+    }
+
+    @Override
+    public Consumer<String> getSessionStatusViewChanger() {
+        return statusView::setText;
+    }
+
+    @Override
+    public BiConsumer<Integer, Integer> getProgressBarViewChanger() {
+        return this::updateProgressBarFromData;
+    }
+
+    @Override
+    public void setActionsOnButtons(Runnable startButton, Runnable stopButton, Runnable resetButton, Runnable settingsButton) {
+        buttonStart.setOnAction(e -> startButton.run());
+        buttonStop.setOnAction(e -> stopButton.run());
+        buttonReset.setOnAction(e -> resetButton.run());
+        buttonSettings.setOnAction(e -> settingsButton.run());
+    }
+
+    private Rectangle createRectForProgressBar(boolean isActive) {
+        Rectangle rect = new Rectangle(10, 10);
+        rect.setStyle("-fx-fill: " + (isActive ? "#7B68EE" : "#d6d2ef") + ";" + "-fx-arc-height: 5px; -fx-arc-width: 5px");
+        return rect;
+    }
+
+
+    private void updateProgressBarFromData(int overageSegmentsCnt, int currentSegment) {
+        sessionProgressView.getChildren().clear();
+        Region margin = new Region();
+        margin.minWidth(10);
+        sessionProgressView.getChildren().add(margin);
+        for (int i = 0; i < overageSegmentsCnt; i++)
+            sessionProgressView.getChildren().add(createRectForProgressBar(currentSegment >= i));
     }
 }
