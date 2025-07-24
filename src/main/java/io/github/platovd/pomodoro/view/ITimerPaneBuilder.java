@@ -3,7 +3,7 @@ package io.github.platovd.pomodoro.view;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public interface ITimerSceneBuilder extends SceneBuilder {
+public interface ITimerPaneBuilder extends PaneBuilder {
     Consumer<String> getTimerViewChanger();
 
     Consumer<String> getSessionStatusViewChanger();

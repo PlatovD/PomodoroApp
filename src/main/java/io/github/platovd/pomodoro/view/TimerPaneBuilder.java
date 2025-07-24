@@ -1,13 +1,9 @@
 package io.github.platovd.pomodoro.view;
 
 import javafx.geometry.Pos;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
@@ -17,8 +13,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 @Component
-public class TimerSceneBuilder implements ITimerSceneBuilder {
-    private Scene scene;
+public class TimerPaneBuilder implements ITimerPaneBuilder {
+    private BorderPane pane;
 
     private Label statusView;
     private Label timerView;
@@ -30,13 +26,13 @@ public class TimerSceneBuilder implements ITimerSceneBuilder {
 
     private HBox sessionProgressView;
 
-    public TimerSceneBuilder() {
-        buildScene();
+    public TimerPaneBuilder() {
+        buildPane();
     }
 
     @Override
-    public Scene getScene() {
-        return scene;
+    public Pane getPane() {
+        return pane;
     }
 
     private void initSessionProgressBlock() {
@@ -45,10 +41,10 @@ public class TimerSceneBuilder implements ITimerSceneBuilder {
         sessionProgressView.setAlignment(Pos.CENTER);
     }
 
-    private void buildScene() {
+    private void buildPane() {
         initSessionProgressBlock();
 
-        BorderPane pane = new BorderPane();
+        pane = new BorderPane();
         pane.setStyle("-fx-background-color: #1E1A2F;");
 
         statusView = new Label("");
@@ -85,8 +81,6 @@ public class TimerSceneBuilder implements ITimerSceneBuilder {
         pane.topProperty().set(topBox);
         pane.centerProperty().set(timerView);
         pane.bottomProperty().set(bottomBox);
-
-        scene = new Scene(pane);
     }
 
     @Override

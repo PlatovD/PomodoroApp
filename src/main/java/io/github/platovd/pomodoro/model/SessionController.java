@@ -87,4 +87,8 @@ public class SessionController {
     public void setDataRest(TimerSegmentData dataRest) {
         this.dataRest = dataRest;
     }
+
+    public void setFocusSegmentsCnt(int focusSegmentsCnt) {
+        session = new DefaultSession(focusSegmentsCnt);
+    }
 }

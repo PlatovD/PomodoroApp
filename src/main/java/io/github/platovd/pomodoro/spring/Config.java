@@ -8,7 +8,7 @@ import org.springframework.context.annotation.*;
 
 @Configuration
 @ComponentScan("io.github.platovd.pomodoro")
-//@EnableAspectJAutoProxy
+@EnableAspectJAutoProxy
 public class Config {
     public Config() {
     }

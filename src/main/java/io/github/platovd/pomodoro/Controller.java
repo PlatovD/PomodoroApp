@@ -1,52 +1,70 @@
 package io.github.platovd.pomodoro;
 
 import io.github.platovd.pomodoro.model.SessionController;
+import io.github.platovd.pomodoro.model.elements.TimerSegmentData;
+import io.github.platovd.pomodoro.utils.Constants;
 import io.github.platovd.pomodoro.utils.ControllerStatus;
-import io.github.platovd.pomodoro.view.ITimerSceneBuilder;
-import io.github.platovd.pomodoro.view.SceneBuilder;
-import io.github.platovd.pomodoro.view.SettingsSceneBuilder;
+import io.github.platovd.pomodoro.view.ISettingsPaneBuilder;
+import io.github.platovd.pomodoro.view.ITimerPaneBuilder;
 import javafx.animation.AnimationTimer;
 import javafx.scene.Scene;
+import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Component
 public class Controller {
     private ControllerStatus status;
     private final Stage stage;
-    private final Scene timerScene;
-    private final Scene settingsScene;
+    private Scene mainScene;
+    private final Pane timerPane;
+    private final Pane settingsPane;
     private final SessionController sessionController;
-    private AnimationTimer pomodoroTimerAnimation;
+    private final AnimationTimer pomodoroTimerAnimation;
 
     private final Consumer<String> timerViewChanger;
     private final Consumer<String> sessionStatusViewChanger;
     private final BiConsumer<Integer, Integer> progressBarViewChanger;
 
+    private final Supplier<String> focusMinutesDataGetter;
+    private final Supplier<String> focusSecondsDataGetter;
+    private final Supplier<String> restMinutesDataGetter;
+    private final Supplier<String> restSecondsDataGetter;
+    private final Supplier<Integer> focusSegmentsCountDataGetter;
+
     public Controller(@Autowired Stage stage,
-                      @Autowired ITimerSceneBuilder timerSceneBuilder,
-                      @Autowired SettingsSceneBuilder settingsSceneBuilder,
+                      @Autowired ITimerPaneBuilder timerPaneBuilder,
+                      @Autowired ISettingsPaneBuilder settingsPaneBuilder,
                       @Autowired SessionController sessionController) {
         this.stage = stage;
-        this.timerScene = timerSceneBuilder.getScene();
-        this.settingsScene = settingsSceneBuilder.getScene();
+        this.timerPane = timerPaneBuilder.getPane();
+        this.settingsPane = settingsPaneBuilder.getPane();
         this.sessionController = sessionController;
         this.pomodoroTimerAnimation = createAnimationTimer();
 
-        this.timerViewChanger = timerSceneBuilder.getTimerViewChanger();
-        this.sessionStatusViewChanger = timerSceneBuilder.getSessionStatusViewChanger();
-        this.progressBarViewChanger = timerSceneBuilder.getProgressBarViewChanger();
+        this.timerViewChanger = timerPaneBuilder.getTimerViewChanger();
+        this.sessionStatusViewChanger = timerPaneBuilder.getSessionStatusViewChanger();
+        this.progressBarViewChanger = timerPaneBuilder.getProgressBarViewChanger();
+
+        this.focusMinutesDataGetter = settingsPaneBuilder.getFocusMinutesDataGetter();
+        this.focusSecondsDataGetter = settingsPaneBuilder.getFocusSecondsDataGetter();
+        this.restMinutesDataGetter = settingsPaneBuilder.getRestMinutesDataGetter();
+        this.restSecondsDataGetter = settingsPaneBuilder.getRestSecondsDataGetter();
+        this.focusSegmentsCountDataGetter = settingsPaneBuilder.getFocusSegmentsCountDataGetter();
+
         this.status = ControllerStatus.WAIT;
 
-        setAllListenersOnViews(timerSceneBuilder, settingsSceneBuilder);
+        setAllListenersOnViews(timerPaneBuilder, settingsPaneBuilder);
     }
 
     public void startApp() {
-        stage.setScene(timerScene);
+        this.mainScene = new Scene(timerPane);
+        stage.setScene(mainScene);
         stage.show();
         updateDynamicViewFields();
     }
@@ -56,8 +74,8 @@ public class Controller {
         stage.setScene(null);
     }
 
-    private void switchScene() {
-        stage.setScene(stage.getScene().equals(timerScene) ? settingsScene : timerScene);
+    private void switchPane() {
+        mainScene.setRoot(mainScene.getRoot().equals(timerPane) ? settingsPane : timerPane);
     }
 
     private void updateTimerView() {
@@ -90,6 +108,10 @@ public class Controller {
         sessionController.reset();
     }
 
+    private void processEndOfSession() {
+        resetHandler();
+    }
+
 
     private AnimationTimer createAnimationTimer() {
         return new AnimationTimer() {
@@ -97,20 +119,21 @@ public class Controller {
 
             @Override
             public void handle(long now) {
-                if (System.currentTimeMillis() - lastUpdate < 1000L) return;
+                if (System.currentTimeMillis() - lastUpdate < Constants.TIMER_UPDATE_PERIOD_MILLISECONDS) return;
                 lastUpdate = System.currentTimeMillis();
 
                 boolean endFlag;
                 endFlag = sessionController.step();
                 updateDynamicViewFields();
 
-                if (!endFlag) resetData();
+                if (!endFlag) processEndOfSession();
             }
         };
     }
 
-    private void setAllListenersOnViews(ITimerSceneBuilder timerSceneBuilder, SceneBuilder settingSceneBuilder) {
-        timerSceneBuilder.setActionsOnButtons(this::startHandler, this::stopHandler, this::resetHandler, this::changeSceneHandler);
+    private void setAllListenersOnViews(ITimerPaneBuilder timerSceneBuilder, ISettingsPaneBuilder settingPaneBuilder) {
+        timerSceneBuilder.setActionsOnButtons(this::startHandler, this::stopHandler, this::resetHandler, this::changePaneHandler);
+        settingPaneBuilder.setOnActionsButtons(this::changePaneHandler, this::submitNewTimerSettings);
     }
 
     private void startHandler() {
@@ -120,6 +143,7 @@ public class Controller {
     }
 
     private void stopHandler() {
+        if (!status.equals(ControllerStatus.SESSION)) return;
         status = ControllerStatus.PAUSE_SESSION;
         pomodoroTimerAnimation.stop();
         updateDynamicViewFields();
@@ -132,8 +156,31 @@ public class Controller {
         updateDynamicViewFields();
     }
 
-    private void changeSceneHandler() {
+    private void changePaneHandler() {
+        stopHandler();
         status = ControllerStatus.WAIT;
-        switchScene();
+        switchPane();
+    }
+
+    private void submitNewTimerSettings() {
+        TimerSegmentData timerFocusSegmentData;
+        TimerSegmentData timerRestSegmentData;
+        int segmentsCnt = focusSegmentsCountDataGetter.get();
+        try {
+            int focusMinutes = Integer.parseInt(focusMinutesDataGetter.get());
+            int focusSeconds = Integer.parseInt(focusSecondsDataGetter.get());
+            int restMinutes = Integer.parseInt(restMinutesDataGetter.get());
+            int restSeconds = Integer.parseInt(restSecondsDataGetter.get());
+            timerFocusSegmentData = new TimerSegmentData(focusMinutes, focusSeconds);
+            timerRestSegmentData = new TimerSegmentData(restMinutes, restSeconds);
+        } catch (NumberFormatException e) {
+            return;
+        }
+        sessionController.setDataFocus(timerFocusSegmentData);
+        sessionController.setDataRest(timerRestSegmentData);
+        sessionController.setFocusSegmentsCnt(segmentsCnt);
+
+        resetHandler();
+        updateDynamicViewFields();
     }
 }
